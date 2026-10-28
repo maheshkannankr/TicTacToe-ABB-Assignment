@@ -535,17 +535,61 @@ h1:focus {
   gap: 0.75rem;
 }
 
-/* Undo, Reset and New game share one row while the board column is narrow. */
+/* Undo, Reset and New game: round neon icon buttons, centred under the board. */
 .controls .controls__buttons {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 1rem;
 }
 
-.controls .button {
-  padding-inline: 0.5rem;
-  font-size: 0.9375rem;
-  line-height: 1.2;
+.icon-button {
+  --tone: var(--neon-x);
+  display: grid;
+  place-items: center;
+  width: 3.25rem;
+  height: 3.25rem;
+  padding: 0;
+  color: color-mix(in srgb, var(--tone) 35%, white);
+  background: color-mix(in srgb, var(--tone) 6%, transparent);
+  border: 2px solid var(--tone);
+  border-radius: 50%;
+  box-shadow: 0 0 8px color-mix(in srgb, var(--tone) 50%, transparent),
+    inset 0 0 8px color-mix(in srgb, var(--tone) 25%, transparent);
+  cursor: pointer;
+  transition: box-shadow 150ms ease, background-color 150ms ease, transform 150ms ease;
+}
+
+.icon-button svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  filter: drop-shadow(0 0 3px var(--tone));
+}
+
+.icon-button--pink {
+  --tone: var(--neon-o);
+}
+
+.icon-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--tone) 16%, transparent);
+  box-shadow: 0 0 14px var(--tone), 0 0 30px color-mix(in srgb, var(--tone) 45%, transparent),
+    inset 0 0 12px color-mix(in srgb, var(--tone) 40%, transparent);
+  transform: translateY(-1px);
+}
+
+.icon-button:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 3px;
+}
+
+.icon-button:disabled {
+  color: var(--muted);
+  border-color: rgba(164, 159, 196, 0.35);
+  background: transparent;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.icon-button:disabled svg {
+  filter: none;
 }
 
 .button {
@@ -1366,17 +1410,6 @@ h1:focus {
   }
 }
 
-/* Small phones: "Undo" and "Reset" on screen; the full names stay for screen readers. */
-@media (max-width: 400px) {
-  .controls__more {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
-}
 
 /* Short screens: compact level cards so all five fit without scrolling. */
 @media (max-height: 720px) {
@@ -1399,4 +1432,97 @@ h1:focus {
   .setup__step h2 {
     font-size: 1.35rem;
   }
+}
+
+/* Loading feedback: the menu's loading line, and a spinner over the board while a move is processed. */
+.menu__loading {
+  min-height: 1.5em;
+  color: var(--muted);
+}
+
+.board__busy {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  color: var(--neon-draw);
+  background: rgba(7, 6, 15, 0.35);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  animation: busy-in 150ms ease-out 250ms forwards;
+}
+
+.board__busy svg {
+  width: 3rem;
+  height: 3rem;
+  filter: drop-shadow(0 0 6px var(--neon-draw));
+  animation: busy-spin 0.9s linear infinite;
+}
+
+@keyframes busy-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes busy-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .board__busy svg {
+    animation: none;
+  }
+}
+
+/*
+ * Stable layout on the game screen: the hint/error slot always reserves two lines, and the status
+ * stays on one line, so the board and everything below it never jump when the text changes.
+ */
+.controls__message {
+  min-height: calc(2 * 1.35em);
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+.controls__message .hint,
+.controls__message .error {
+  font-size: inherit;
+}
+
+.status {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Room for the glow inside the clipped status line, without changing its height in the layout. */
+.status {
+  padding-block: 0.35em;
+  margin-block: -0.35em;
+}
+
+/*
+ * No sideways jumps: always reserve the scrollbar's space, so the centred page doesn't shift when a
+ * screen (or a growing move list) starts or stops needing a scrollbar.
+ */
+html {
+  scrollbar-gutter: stable;
+}
+
+/* Fixed column widths, so the move table doesn't re-flow as X and O rows are added. */
+.moves {
+  table-layout: fixed;
+}
+
+.moves th:nth-child(1) {
+  width: 22%;
+}
+
+.moves th:nth-child(2) {
+  width: 22%;
 }

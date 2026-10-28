@@ -121,6 +121,62 @@ describe('App', () => {
     expect(await screen.findByText('Single player · Unbeatable')).toBeInTheDocument();
   });
 
+  it('renders an empty 3 × 3 board of nine clickable cells, with X to start', async () => {
+    const { startGame } = await setup();
+    await startGame({ mode: 'Multiplayer', side: 'X' });
+
+    const cells = within(screen.getByRole('group', { name: 'Game board' })).getAllByRole('button');
+    expect(cells).toHaveLength(9);
+    expect(cells.every((c) => /, empty$/.test(c.getAttribute('aria-label') ?? ''))).toBe(true);
+    expect(cells.every((c) => !(c as HTMLButtonElement).disabled)).toBe(true);
+    expect(screen.getByRole('status')).toHaveTextContent("Player 1's move (X)");
+  });
+
+  it('shows loading feedback while starting up and while a move is processed', async () => {
+    const user = userEvent.setup();
+    const api = createMockGameApi();
+    let releaseScores!: () => void;
+    let releaseMove!: () => void;
+    const slow: GameApi = {
+      ...api,
+      getScoreboard: () =>
+        new Promise((resolve) => {
+          releaseScores = () => void api.getScoreboard().then(resolve);
+        }),
+      makeMove: (gameId, move) =>
+        new Promise((resolve) => {
+          releaseMove = () => void api.makeMove(gameId, move).then(resolve);
+        }),
+    };
+    render(<App api={slow} flipCoin={() => 'Heads'} tossDelayMs={0} />);
+
+    // Starting up: the menu says it's loading and Start game waits.
+    expect(screen.getByText('Loading your scoreboard…')).toBeInTheDocument();
+    expect(button('Start game')).toBeDisabled();
+    releaseScores();
+    await screen.findByRole('button', { name: 'Start game' }).then((el) => expect(el).toBeEnabled());
+    expect(screen.queryByText('Loading your scoreboard…')).not.toBeInTheDocument();
+
+    await user.click(button('Start game'));
+    await user.click(button(/^Multiplayer/));
+    await user.click(button('Heads'));
+    await user.click(await screen.findByRole('button', { name: /^Play X/ }));
+    await user.click(button('Start game'));
+    const board = await screen.findByRole('group', { name: 'Game board' });
+
+    // A move in flight: the board is busy and every cell and control waits.
+    await user.click(cell(1, 1));
+    expect(board).toHaveAttribute('aria-busy', 'true');
+    expect(within(board).getByText('Updating the game')).toBeInTheDocument();
+    expect(cell(3, 3)).toBeDisabled();
+    expect(button('New game')).toBeDisabled();
+
+    releaseMove();
+    expect(await screen.findByRole('button', { name: /^Row 1, Column 1, X/ })).toBeInTheDocument();
+    expect(board).toHaveAttribute('aria-busy', 'false');
+    expect(cell(3, 3)).toBeEnabled();
+  });
+
   it('alternates turns, records move history and resets mid-game', async () => {
     const { user, startGame, play } = await setup();
     await startGame({ mode: 'Multiplayer', side: 'X', names: ['Asha', 'Ben'] });
@@ -161,6 +217,24 @@ describe('App', () => {
     expect(button('Undo last move')).toBeDisabled();
     expect(button('Reset game')).toBeDisabled();
     expect(button('New game')).toBeEnabled();
+  });
+
+  it('starts a fresh game with the same setup when New game is pressed', async () => {
+    const { user, startGame, play, score } = await setup();
+    await startGame({ mode: 'Multiplayer', side: 'X', names: ['Asha', 'Ben'] });
+    for (const [row, column] of [[1, 1], [2, 1], [1, 2], [2, 2], [1, 3]]) {
+      await play(row, column);
+    }
+    await screen.findByText('Asha wins!');
+
+    await user.click(button('New game'));
+
+    // Still on the game screen, with an empty board, the same players, and X to move.
+    expect(await screen.findByText('No moves yet. X goes first.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent("Asha's move (X)");
+    expect(screen.getByRole('list', { name: 'Players' })).toHaveTextContent('Ben');
+    expect(screen.queryByRole('heading', { name: 'How do you want to play?' })).not.toBeInTheDocument();
+    expect(score('X wins')).toBe('1');
   });
 
   it('shows a draw, scores it, and resets the scoreboard on request', async () => {
@@ -222,7 +296,7 @@ describe('App', () => {
     expect(screen.getByRole('status')).toHaveTextContent("Player 2's move (O)");
   });
 
-  it('shows the server error for a rejected move and keeps the turn', async () => {
+  it('shows the error for a rejected move and keeps the turn', async () => {
     const api = createMockGameApi();
     const rejecting: GameApi = {
       ...api,
@@ -245,7 +319,8 @@ describe('App', () => {
     }
     await screen.findByText('Asha wins!');
 
-    await user.click(button('New game'));
+    await user.click(button(/Main menu/));
+    await user.click(button('Start game'));
     await user.click(button(/^Single player/));
     await user.click(button(/^Level 4: Hard/));
     await user.click(button('Skip the toss'));

@@ -56,15 +56,11 @@ export function GameScreen({
             isOver={game.status !== 'InProgress'}
             canUndo={game.canUndo}
             disabled={isBusy}
+            error={error}
             onUndo={onUndo}
             onReset={onReset}
             onNewGame={onNewGame}
           />
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
         </section>
 
         <aside className="side">

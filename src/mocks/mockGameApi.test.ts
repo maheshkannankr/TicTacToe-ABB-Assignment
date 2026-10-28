@@ -62,6 +62,15 @@ describe('mock game API', () => {
     expect((await api.getGame(game.id)).moves).toHaveLength(5);
   });
 
+  it('scores an O win on the scoreboard', async () => {
+    const api = createMockGameApi();
+    const game = await api.createGame({ mode: 'TwoPlayer' });
+    // O completes the middle row.
+    const won = await playAll(api, game.id, [[0, 0], [1, 0], [0, 1], [1, 1], [2, 2], [1, 2]]);
+    expect(won).toMatchObject({ status: 'Won', winner: 'O' });
+    expect(await api.getScoreboard()).toEqual({ xWins: 0, oWins: 1, draws: 0 });
+  });
+
   it('marks a full board with no line as a draw and scores it', async () => {
     const api = createMockGameApi();
     const game = await api.createGame({ mode: 'TwoPlayer' });
@@ -106,20 +115,36 @@ describe('mock game API', () => {
     expect(won.moves).toHaveLength(7);
     expect(won.moves.at(-1)?.player).toBe('X');
 
-    // The computer never replied, so undo removes only X's winning move.
-    const undone = await api.undoMove(game.id);
-    expect(undone.moves).toHaveLength(6);
-    expect(undone.status).toBe('InProgress');
+    // The game is over, so the result is final.
+    expect(won.canUndo).toBe(false);
   });
 
-  it('counts a finished game once and takes it back on undo', async () => {
+  it('counts a finished game once and refuses to undo it (Option A)', async () => {
     const api = createMockGameApi();
     const game = await api.createGame({ mode: 'TwoPlayer' });
-    await playAll(api, game.id, X_WINS_TOP_ROW);
+    const won = await playAll(api, game.id, X_WINS_TOP_ROW);
+    expect(won.canUndo).toBe(false);
     expect(await api.getScoreboard()).toEqual({ xWins: 1, oWins: 0, draws: 0 });
 
-    await api.undoMove(game.id);
-    expect(await api.getScoreboard()).toEqual({ xWins: 0, oWins: 0, draws: 0 });
+    await expect(api.undoMove(game.id)).rejects.toMatchObject({ status: 409 });
+    await expect(api.undoMove(game.id)).rejects.toThrow(/result is final/);
+    expect((await api.getGame(game.id)).moves).toHaveLength(5);
+    expect(await api.getScoreboard()).toEqual({ xWins: 1, oWins: 0, draws: 0 });
+  });
+
+  it('refuses to undo a finished game in computer mode too', async () => {
+    const api = createMockGameApi();
+    const game = await api.createGame({ mode: 'Computer' });
+    // Play X into Hard until the game ends, however it ends.
+    for (const [row, column] of [[0, 0], [2, 2], [0, 1], [2, 0], [1, 2]]) {
+      const state = await api.getGame(game.id);
+      if (state.status !== 'InProgress') break;
+      if (state.board[row][column] === null) await api.makeMove(game.id, { player: 'X', row, column });
+    }
+    const finished = await api.getGame(game.id);
+    expect(finished.status).not.toBe('InProgress');
+    expect(finished.canUndo).toBe(false);
+    await expect(api.undoMove(game.id)).rejects.toMatchObject({ status: 409 });
   });
 
   it('resets the game but keeps the scoreboard', async () => {
@@ -206,16 +231,16 @@ describe('mock game API', () => {
     expect(history[1].moves).toHaveLength(5);
   });
 
-  it('drops a history entry when undo reopens the game, but keeps it on reset', async () => {
+  it('keeps a finished game in the history after a refused undo and after a reset', async () => {
     const api = createMockGameApi();
     const game = await api.createGame({ mode: 'TwoPlayer' });
     await playAll(api, game.id, X_WINS_TOP_ROW);
-    await api.undoMove(game.id);
-    expect(await api.getHistory()).toEqual([]);
+    await expect(api.undoMove(game.id)).rejects.toMatchObject({ status: 409 });
+    expect(await api.getHistory()).toHaveLength(1);
 
-    await api.makeMove(game.id, { player: 'X', row: 0, column: 2 });
     await api.resetGame(game.id);
     expect(await api.getHistory()).toHaveLength(1);
+    expect(await api.getScoreboard()).toEqual({ xWins: 1, oWins: 0, draws: 0 });
   });
 
   it('stores the computer level, defaults it to Hard, and rejects unknown levels', async () => {

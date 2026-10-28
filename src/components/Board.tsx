@@ -1,3 +1,4 @@
+import { LoaderCircle } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { CellPosition, GameState } from '../api/types';
 import { cellKey, formatPosition } from '../utils/format';
@@ -31,8 +32,16 @@ export function Board({ game, disabled, onPlay }: BoardProps) {
       className={isOver ? 'board board--over' : 'board'}
       role="group"
       aria-label={isOver ? 'Game board, locked' : 'Game board'}
+      aria-busy={disabled}
     >
       <GridLines />
+      {disabled && (
+        // Fades in after a short delay, so quick responses don't flash a spinner.
+        <span className="board__busy">
+          <LoaderCircle aria-hidden="true" focusable="false" />
+          <span className="visually-hidden">Updating the game</span>
+        </span>
+      )}
       {game.board.map((cells, row) =>
         cells.map((value, column) => {
           const position = { row, column };

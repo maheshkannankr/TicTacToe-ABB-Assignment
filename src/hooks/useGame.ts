@@ -21,6 +21,14 @@ function readGameId(): string | null {
   }
 }
 
+/** A request for a fresh game with the same mode, sides, level and names. */
+const sameSetup = (game: GameState): CreateGameRequest => ({
+  mode: game.mode,
+  humanPlayer: game.humanPlayer ?? undefined,
+  difficulty: game.difficulty ?? undefined,
+  playerNames: game.playerNames,
+});
+
 /** Picks up the game from before a page refresh, if the server still has it. */
 async function resumeGame(api: GameApi): Promise<GameState | null> {
   const gameId = readGameId();
@@ -113,14 +121,10 @@ export function useGame(api: GameApi) {
   );
 
   const undo = useCallback(() => {
+    // The server sets canUndo, and turns it off once a game is finished (Option A).
     if (!game?.canUndo) return;
-    const wasFinished = game.status !== 'InProgress';
-    void run(async () => {
-      showGame(await api.undoMove(game.id));
-      // Undoing a finished game can change the scoreboard on the server.
-      if (wasFinished) await refreshScoreboard();
-    });
-  }, [api, game, refreshScoreboard, run, showGame]);
+    void run(async () => showGame(await api.undoMove(game.id)));
+  }, [api, game, run, showGame]);
 
   const resetGame = useCallback(() => {
     if (!game) return;
@@ -130,16 +134,15 @@ export function useGame(api: GameApi) {
       } catch (error) {
         // The server may have restarted and forgotten this game; start a new one with the same setup.
         if (!(error instanceof ApiError && error.status === 404)) throw error;
-        showGame(
-          await api.createGame({
-            mode: game.mode,
-            humanPlayer: game.humanPlayer ?? undefined,
-            difficulty: game.difficulty ?? undefined,
-            playerNames: game.playerNames,
-          }),
-        );
+        showGame(await api.createGame(sameSetup(game)));
       }
     });
+  }, [api, game, run, showGame]);
+
+  /** Starts a fresh game with the current setup. Works whether or not the current game is over. */
+  const newGame = useCallback(() => {
+    if (!game) return;
+    void run(async () => showGame(await api.createGame(sameSetup(game))));
   }, [api, game, run, showGame]);
 
   const resetScoreboard = useCallback(() => {
@@ -163,6 +166,7 @@ export function useGame(api: GameApi) {
     playCell,
     undo,
     resetGame,
+    newGame,
     resetScoreboard,
     loadHistory,
     clearError,

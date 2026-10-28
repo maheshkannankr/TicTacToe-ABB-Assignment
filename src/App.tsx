@@ -30,6 +30,7 @@ export default function App({ api = defaultApi, flipCoin = flipFairCoin, tossDel
     playCell,
     undo,
     resetGame,
+    newGame,
     resetScoreboard,
     loadHistory,
     clearError,
@@ -66,6 +67,7 @@ export default function App({ api = defaultApi, flipCoin = flipFairCoin, tossDel
           <MainMenu
             canContinue={game?.status === 'InProgress'}
             disabled={!isReady}
+            isLoading={!isReady && isBusy}
             onContinue={() => go('game')}
             onStart={() => go('setup')}
             onHistory={() => go('history')}
@@ -103,7 +105,7 @@ export default function App({ api = defaultApi, flipCoin = flipFairCoin, tossDel
           onPlay={playCell}
           onUndo={undo}
           onReset={resetGame}
-          onNewGame={() => go('setup')}
+          onNewGame={newGame}
           onResetScoreboard={resetScoreboard}
           onMenu={toMenu}
         />

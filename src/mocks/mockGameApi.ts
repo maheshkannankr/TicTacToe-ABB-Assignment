@@ -16,8 +16,6 @@ import type {
 } from '../api/types';
 import { buildBoard, chooseComputerMove, DIFFICULTIES, evaluateBoard, isOnBoard, opponentOf, playerForMove } from './rules';
 
-type ScoredOutcome = 'X' | 'O' | 'Draw';
-
 interface GameRecord {
   id: string;
   mode: GameMode;
@@ -25,10 +23,6 @@ interface GameRecord {
   difficulty: Difficulty | null;
   playerNames: PlayerNames;
   moves: Move[];
-  /** Set once when a game finishes, so the scoreboard counts it exactly once. */
-  scoredOutcome: ScoredOutcome | null;
-  /** The history entry written when this round finished, so undo can take it back. */
-  historyEntryId: string | null;
 }
 
 interface MockOptions {
@@ -73,10 +67,10 @@ export function createMockGameApi({ latencyMs = 0, random = Math.random }: MockO
     return game;
   };
 
-  const adjustScore = (outcome: ScoredOutcome, delta: 1 | -1) => {
-    if (outcome === 'X') scoreboard.xWins += delta;
-    else if (outcome === 'O') scoreboard.oWins += delta;
-    else scoreboard.draws += delta;
+  const addToScore = (winner: Player | null) => {
+    if (winner === 'X') scoreboard.xWins += 1;
+    else if (winner === 'O') scoreboard.oWins += 1;
+    else scoreboard.draws += 1;
   };
 
   const computerOf = (game: GameRecord): Player | null =>
@@ -97,10 +91,13 @@ export function createMockGameApi({ latencyMs = 0, random = Math.random }: MockO
       winner: outcome.winner,
       winningCells: outcome.winningCells,
       moves: game.moves,
+      // Option A: a finished game is final, so its result can't be undone off the scoreboard.
       // In computer mode only the human's moves can be taken back; the computer's opener stays.
-      canUndo: game.humanPlayer
-        ? game.moves.some((move) => move.player === game.humanPlayer)
-        : game.moves.length > 0,
+      canUndo:
+        outcome.status === 'InProgress' &&
+        (game.humanPlayer
+          ? game.moves.some((move) => move.player === game.humanPlayer)
+          : game.moves.length > 0),
     };
   };
 
@@ -113,11 +110,10 @@ export function createMockGameApi({ latencyMs = 0, random = Math.random }: MockO
     });
     const board = buildBoard(game.moves);
     const outcome = evaluateBoard(board);
-    if (outcome.status !== 'InProgress' && game.scoredOutcome === null) {
-      game.scoredOutcome = outcome.winner ?? 'Draw';
-      adjustScore(game.scoredOutcome, 1);
-
-      const entry: GameSummary = {
+    // No move is accepted after the game ends and undo is refused, so this runs once per round.
+    if (outcome.status !== 'InProgress') {
+      addToScore(outcome.winner);
+      history.unshift({
         id: `h-${nextHistoryId++}`,
         gameId: game.id,
         mode: game.mode,
@@ -130,9 +126,7 @@ export function createMockGameApi({ latencyMs = 0, random = Math.random }: MockO
         winningCells: outcome.winningCells,
         moves: [...game.moves],
         finishedAt: new Date().toISOString(),
-      };
-      history.unshift(entry);
-      game.historyEntryId = entry.id;
+      });
     }
     return outcome;
   };
@@ -168,8 +162,6 @@ export function createMockGameApi({ latencyMs = 0, random = Math.random }: MockO
           difficulty: isComputer ? (request.difficulty ?? 'Hard') : null,
           playerNames: resolveNames(request, humanPlayer),
           moves: [],
-          scoredOutcome: null,
-          historyEntryId: null,
         };
         games.set(game.id, game);
         playComputerIfDue(game);
@@ -207,24 +199,17 @@ export function createMockGameApi({ latencyMs = 0, random = Math.random }: MockO
     undoMove: (gameId) =>
       respond(() => {
         const game = findGame(gameId);
-        if (!toState(game).canUndo) {
+        const state = toState(game);
+        if (state.status !== 'InProgress') {
+          throw new ApiError('This game is over, so its result is final. Start a new game to play again.', 409);
+        }
+        if (!state.canUndo) {
           throw new ApiError('There are no moves to undo.', 409);
         }
 
         // Computer mode removes the computer's reply and the human move before it.
-        // If the human's move ended the game, the computer never replied, so only one move goes.
         const lastMove = game.moves[game.moves.length - 1];
         const count = game.humanPlayer && lastMove.player !== game.humanPlayer ? 2 : 1;
-
-        // Reopening a finished game takes its result back off the scoreboard and the history.
-        if (game.scoredOutcome !== null) {
-          adjustScore(game.scoredOutcome, -1);
-          const index = history.findIndex((entry) => entry.id === game.historyEntryId);
-          if (index !== -1) history.splice(index, 1);
-          game.scoredOutcome = null;
-          game.historyEntryId = null;
-        }
-
         game.moves = game.moves.slice(0, game.moves.length - count);
         return toState(game);
       }),
@@ -234,8 +219,6 @@ export function createMockGameApi({ latencyMs = 0, random = Math.random }: MockO
         const game = findGame(gameId);
         // A finished game's result stays on the scoreboard and in the history; the new round starts unscored.
         game.moves = [];
-        game.scoredOutcome = null;
-        game.historyEntryId = null;
         playComputerIfDue(game);
         return toState(game);
       }),

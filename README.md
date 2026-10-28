@@ -1,320 +1,789 @@
-# Tic Tac Toe (React frontend)
+# Tic Tac Toe
 
-## 1. Project overview
+## 1. Project Overview
 
-A browser-based Tic Tac Toe client built with React. You can play two-player or against a basic
-computer opponent, see the move history, undo moves, and keep a session scoreboard.
+This is a browser-based Tic Tac Toe game built with React and TypeScript.
 
-**Scope of this submission: frontend only.** The UI is written against a REST contract for a
-.NET backend (documented below) that owns all game rules, sessions and the scoreboard. That
-backend is not part of this repository. To let the app run and be reviewed on its own, it ships
-with an **in-browser mock API** (`src/mocks/`) that implements the same contract and rules. The
-UI talks to the mock through the same `GameApi` interface it would use for the real HTTP API, so
-switching to a real backend is a configuration change, not a code change.
+The application supports:
 
-## 2. Tech stack
+- Two Player Mode (Multiplayer).
+- Play Against Computer Mode (Single Player), with five difficulty levels.
+- A welcome menu and a guided game setup with a coin toss.
+- A 3 × 3 Tic Tac Toe board.
+- Move history.
+- Undo functionality.
+- Session scoreboard.
+- Match history of finished games.
+- Game reset.
+- Scoreboard reset.
 
-| Area | Choice |
+The application is designed with a clear separation between the UI and game logic. The game rules and state transitions are handled by a dedicated game engine, while the React UI is responsible for displaying the current state and handling user interactions.
+
+---
+
+## 2. Tech Stack
+
+| Area | Technology |
 | --- | --- |
-| UI | React 18 + TypeScript (strict) |
-| Build / dev server | Vite 5 (dev proxy forwards `/api` to the backend) |
-| API style | REST + JSON over `fetch` (`src/api/`) |
-| Storage | Server-side, in memory (the mock keeps state in memory for the page's lifetime) |
-| Tests | Vitest, React Testing Library, user-event, jsdom |
+| UI | React 18 with TypeScript (strict mode) |
+| Build and Dev Server | Vite 5 |
+| Icons | lucide-react |
+| Testing | Vitest, React Testing Library, user-event and jsdom |
 
-No UI or state-management libraries: the state is small and lives in one hook (`useGame`).
+No UI component library or external state-management library is used. The application state is small and is managed through the `useGame` hook.
 
-## 3. Features implemented
+---
 
-- **Main menu**: "Welcome to Tic Tac Toe" with Start game, Continue game (when a game is
-  unfinished), Match history, Scoreboard and How to play.
-- **Start game flow** in three steps:
-  1. Choose **Single player** (against the computer) or **Multiplayer** (two players on one
-     device, with optional names).
-  2. **Coin toss**: you (or Player 1) call Heads or Tails, and the coin spins. "Skip the toss"
-     lets the caller pick directly.
-  3. The **toss winner picks X or O**. X always moves first. If the computer wins the toss, it
-     takes X and opens the game.
-- **Match history** screen: every finished game with players, result, mode, time, the final
-  board (winning line highlighted) and the full move list.
-- 3 × 3 board. Empty cells are clickable buttons; filled cells show X or O and stay locked.
-- Players bar showing who plays X and who plays O, with the side to move lit up.
-- Turn indicator ("Asha's move (X)", "Your move (O)") that only changes after a valid move.
-- Win detection for rows, columns and diagonals, with the winner shown, the winning cells
-  highlighted and the board locked: every cell is disabled, the non-winning marks dim, **Undo** and
-  **Reset** are disabled, and a hint says to start a new game.
-- Draw detection when all 9 cells are filled with no winner.
-- **Reset game** clears the board, history and result and gives X the move. The scoreboard is
-  kept.
-- **Move history** table (move number, player, "Row r, Column c"), updated after every move.
-- **Undo last move**: one move in two-player mode, the computer's reply plus your move in
-  computer mode. Disabled when there is nothing to undo and once the game is over.
-- **Scoreboard** (X wins, O wins, draws), served by the API, counted once per finished game,
-  with a separate **Reset scoreboard** button.
-- **Computer mode**: you play the side from the toss and the computer plays the other, at one of
-  five levels picked before the toss:
+## 3. Features Implemented
 
-  | Level | Name | How it plays |
-  | --- | --- | --- |
-  | 1 | Novice | Any free cell, at random |
-  | 2 | Easy | Takes a winning move, otherwise random |
-  | 3 | Medium | Wins, then blocks, otherwise random |
-  | 4 | Hard (default) | The brief's strategy: win → block → center → corner → any free cell |
-  | 5 | Unbeatable | Full minimax search; it never loses |
-- **New game** (back to setup) and **Main menu** buttons on the game screen.
-- Server error messages (for example from rejected moves) are shown to the player.
-  Controls are disabled while a request is in flight, which prevents double moves.
-- Neon-sign visual theme: glowing cyan X and pink O that light up when placed, a violet grid,
-  and winning cells that pulse in the winner's colour. The page is always dark, because neon
-  needs a dark background.
-- Accessible markup: cells are labelled buttons, the status line is a live region, and the
-  animations are turned off when the OS asks for reduced motion.
-- Responsive layout, checked from 320 × 568 phones to 1920 × 1080 desktops: the board sizes
-  itself to the viewport's width *and* height, so the players bar, status, board and controls fit
-  on one screen without scrolling, and nothing scrolls sideways.
+### Main Menu
 
-## 4. Running the backend locally
+The application opens on a "Welcome to Tic Tac Toe" menu with:
 
-Not included (frontend-only scope). `npm run dev` uses the built-in mock, so **no backend is
-needed to run or review the app**.
+- Start Game.
+- Continue Game (shown only when a game is unfinished).
+- Match History.
+- Scoreboard.
+- How to Play.
 
-If a .NET API implementing the contract below is available:
+### Game Setup
 
-```bash
-cp .env.example .env     # set VITE_API_PROXY_TARGET to the API's URL, e.g. http://localhost:5000
-npm run dev:api          # /api/* is proxied to that URL
-```
+Start Game walks the player through a short setup:
 
-## 5. Running the frontend locally
+1. **Mode:** choose Single Player (against the computer) or Multiplayer (two players on one device). In Multiplayer, both players can enter their names (optional, up to 20 characters).
+2. **Level:** in Single Player, choose the computer's difficulty (see section 4).
+3. **Coin Toss:** the player (or Player 1) calls Heads or Tails while the coin spins. "Skip the toss" lets the player choose a side directly.
+4. **Side:** the toss winner picks X or O. X always moves first. If the computer wins the toss, it takes X and makes the opening move.
 
-Requires Node.js 18 or later.
+### Game Modes
 
-```bash
-npm install
-npm run dev              # http://localhost:5173, runs against the in-browser mock API
-```
+The application provides two game modes:
 
-| Script | What it does |
-| --- | --- |
-| `npm run dev` | Dev server with the mock API (no backend needed) |
-| `npm run dev:api` | Dev server that calls the real API through the `/api` proxy |
-| `npm test` | Runs all tests once |
-| `npm run test:watch` | Runs tests in watch mode |
-| `npm run typecheck` | TypeScript check |
-| `npm run build` | Production build that runs on the mock API |
-| `npm run build:api` | Production build that calls the real API |
+1. Two Player Mode
+2. Play Against Computer Mode
 
-Any other way of starting Vite (`npx vite`, VS Code's script runner) also uses the mock. The app
-calls a real API only when `VITE_USE_MOCK=false`, which the `:api` scripts set through `.env.api`.
+In Two Player Mode:
 
-| Env variable | Default | Purpose |
+- Player X and Player O are controlled by users.
+- X starts the game.
+- Players alternate turns.
+
+In Computer Mode:
+
+- The human plays the side chosen after the coin toss, and the computer plays the other side.
+- Skipping the toss and choosing X gives the standard setup: the human is X and the computer is O.
+- The computer automatically makes a move after the human player's valid move.
+
+### Game Board
+
+The game uses a standard 3 × 3 board.
+
+- Each cell is represented as an interactive button.
+- Empty cells can be selected.
+- Once selected, a cell displays X or O.
+- Occupied cells cannot be selected again.
+- The board becomes disabled when the game is completed.
+
+### Player Turns
+
+A players bar shows who plays X and who plays O, and the side to move is lit up.
+
+The current player's turn is clearly displayed.
+
+Examples:
+
+`Your move (X)` or `Asha's move (O)`
+
+The turn changes only after a valid move.
+
+Invalid moves do not change the current player.
+
+### Win Detection
+
+The game detects wins across:
+
+- Rows.
+- Columns.
+- Diagonals.
+
+When a player wins:
+
+- The winner is displayed.
+- The winning cells are highlighted.
+- The board is locked.
+- The scoreboard is updated.
+- Further moves are prevented.
+
+### Draw Detection
+
+A game is considered a draw when all nine cells are filled without a winner.
+
+When a draw occurs:
+
+- A draw message is displayed.
+- The board is locked.
+- The scoreboard is updated.
+- Further moves are prevented.
+
+### Move History
+
+The application displays the move history for the current game.
+
+Each move contains:
+
+- Move number.
+- Player.
+- Cell position.
+
+Example:
+
+| Move | Player | Position |
 | --- | --- | --- |
-| `VITE_USE_MOCK` | unset (mock); `false` in `.env.api` | `false` calls the real API instead of the in-browser mock |
-| `VITE_API_PROXY_TARGET` | `http://localhost:5000` | Where the dev server forwards `/api/*` |
-| `VITE_API_BASE_URL` | `/api` | Base URL the browser calls. Use a full URL for a deployed API (it then needs CORS) |
+| 1 | X | Row 1, Column 1 |
+| 2 | O | Row 2, Column 2 |
+| 3 | X | Row 1, Column 2 |
 
-## 6. API endpoint summary
+The history updates after every valid move.
 
-JSON is camelCase and enums are strings (in ASP.NET Core, add `JsonStringEnumConverter`). Board
-coordinates are **zero-based**; the UI displays them one-based.
+### Undo Last Move
 
-| Method | Path | Body | Returns | Purpose |
-| --- | --- | --- | --- | --- |
-| `POST` | `/api/games` | `CreateGameRequest` (below) | `GameState` | Create a game session |
-| `GET` | `/api/games/{id}` | | `GameState` | Get the current game state |
-| `POST` | `/api/games/{id}/moves` | `{ "player": "X", "row": 0, "column": 2 }` | `GameState` | Submit a move |
-| `POST` | `/api/games/{id}/undo` | | `GameState` | Undo (one move, or a pair in computer mode) |
-| `POST` | `/api/games/{id}/reset` | | `GameState` | Fresh board with the same mode, sides and names |
-| `GET` | `/api/history` | | `GameSummary[]` | Finished games, newest first |
-| `GET` | `/api/scoreboard` | | `Scoreboard` | Get the scoreboard |
-| `POST` | `/api/scoreboard/reset` | | `Scoreboard` | Reset the scoreboard to zero |
+The application provides an Undo Last Move control.
 
-The game ID is in the path; the move body carries the player and the cell.
+In Two Player Mode:
 
-```jsonc
-// CreateGameRequest
-{
-  "mode": "Computer",                // "TwoPlayer" | "Computer"
-  "humanPlayer": "O",                // Computer mode only: the human's side from the toss (default "X")
-  "difficulty": "Hard",              // Computer mode only: Novice | Easy | Medium | Hard | Unbeatable (default Hard)
-  "playerNames": { "X": "Computer", "O": "You" }   // optional; blanks fall back to defaults
-}
+- Undo removes the most recent move.
+- The turn is restored to the player whose move was removed.
 
-// GameState
-{
-  "id": "3f2c…",
-  "mode": "Computer",
-  "humanPlayer": "O",                // null in two-player mode
-  "difficulty": "Hard",              // null in two-player mode
-  "playerNames": { "X": "Computer", "O": "You" },
-  "board": [["X", null, null], [null, "O", null], [null, null, null]],
-  "currentPlayer": "X",
-  "status": "InProgress",            // "InProgress" | "Won" | "Draw"
-  "winner": null,                    // "X" | "O" | null
-  "winningCells": [],                // e.g. [{ "row": 0, "column": 0 }, …] when won
-  "moves": [
-    { "moveNumber": 1, "player": "X", "row": 0, "column": 0 },
-    { "moveNumber": 2, "player": "O", "row": 1, "column": 1 }
-  ],
-  "canUndo": true
-}
+In Computer Mode:
 
-// GameSummary (one entry of GET /api/history)
-{
-  "id": "h-7", "gameId": "3f2c…", "mode": "TwoPlayer", "humanPlayer": null, "difficulty": null,
-  "playerNames": { "X": "Asha", "O": "Ben" },
-  "board": [["X", "X", "X"], ["O", "O", null], [null, null, null]],
-  "status": "Won", "winner": "X", "winningCells": [ … ], "moves": [ … ],
-  "finishedAt": "2026-10-28T06:26:41.000Z"
-}
+- Undo removes the human player's previous move and the computer's response together.
+- The game returns to the human player's turn.
+- If the computer opened the game as X, its opening move is never undone.
 
-// Scoreboard
-{ "xWins": 2, "oWins": 1, "draws": 0 }
+Undo is disabled when:
+
+- There are no moves to undo.
+- The game has already been completed.
+
+### Reset Game
+
+Reset Game:
+
+- Clears the board.
+- Clears move history.
+- Clears winner status.
+- Clears draw status.
+- Sets the current player back to X.
+- Starts a fresh game with the same players, sides and level.
+
+Reset Game does not modify the scoreboard.
+
+Reset Game is available while a game is in progress. Once a game is won or drawn, Reset is disabled and the next game is started with New Game.
+
+### New Game
+
+New Game starts a fresh game straight away with the current setup:
+
+- The same mode.
+- The same players and sides.
+- The same computer level.
+
+The board, move history and game status are cleared, X moves first, and the scoreboard is kept. If the computer plays X, it makes its opening move again.
+
+New Game works at any time, including after a game has been won or drawn. To change the mode, level or sides, go back to the Main Menu and choose Start Game.
+
+### Scoreboard
+
+The application maintains a session-level scoreboard containing:
+
+- X Wins.
+- O Wins.
+- Draws.
+
+A completed game is counted only once.
+
+The application also provides a Reset Scoreboard control that resets all scores to zero.
+
+The scoreboard is shown next to the board and on its own Scoreboard screen.
+
+### Match History
+
+The Match History screen lists every finished game in the session, newest first.
+
+Each entry shows:
+
+- The players and their sides.
+- The result.
+- The mode and level.
+- The number of moves and the time.
+
+Opening an entry shows the final board, with the winning line highlighted, and the full move list.
+
+### How to Play
+
+A How to Play screen explains the rules, the setup, the controls and the computer levels.
+
+### Visual Theme
+
+The game uses a neon-sign theme:
+
+- X glows cyan and O glows pink.
+- The grid is drawn as violet neon tubes.
+- Marks light up as they are placed.
+- Winning cells pulse in the winner's colour.
+- Undo, Reset and New Game are round neon icon buttons.
+
+The page is always dark, because neon needs a dark background.
+
+---
+
+## 4. Computer Move Logic
+
+In Single Player, the computer plays at one of five levels.
+
+| Level | Name | How it plays |
+| --- | --- | --- |
+| 1 | Novice | Picks any free cell at random |
+| 2 | Easy | Takes a winning move if it has one, otherwise plays at random |
+| 3 | Medium | Wins if it can, blocks if it has to, otherwise plays at random |
+| 4 | Hard (default) | The required five-step priority strategy |
+| 5 | Unbeatable | Looks ahead to the end of the game (minimax) and never loses |
+
+Hard, the default level, follows the priority required by the assessment:
+
+1. If the computer can win, play the winning move.
+2. If the opponent can win next, block it.
+3. Take the center if available.
+4. Take a corner if available.
+5. Take any available cell.
+
+At every level:
+
+- The computer only selects valid, empty cells.
+- The computer does not make a move after the game has been completed.
+
+---
+
+## 5. Game State
+
+The application maintains the following game information:
+
+```text
+id              game identifier
+mode            TwoPlayer | Computer
+humanPlayer     the human's side in Computer mode (null in Two Player mode)
+difficulty      the computer's level (null in Two Player mode)
+playerNames     display name for X and for O
+board           3 × 3 grid of X, O or empty
+currentPlayer   X | O
+status          InProgress | Won | Draw
+winner          X | O | null
+winningCells    the three cells of the winning line
+moves           move history (move number, player, row, column)
+canUndo         whether Undo is currently allowed
 ```
 
-The coin toss runs in the browser because it's pre-game UI, not a game rule. Its outcome
-reaches the server as `humanPlayer` and `playerNames` when the game is created.
+The scoreboard (`xWins`, `oWins`, `draws`) and the match history are kept separately from the current game.
 
-The scoreboard is not part of `GameState`. The client fetches it on load, after a game finishes,
-and after undoing a finished game.
+Supported game statuses:
 
-**Errors.** Invalid requests never change game state or the turn. Errors use ProblemDetails
-(`detail` / `title`) or `{ "message" }`, and the UI shows the text to the player, so it should
-read as a user-facing sentence.
+```text
+InProgress
+Won
+Draw
+```
 
-| Status | When |
-| --- | --- |
-| `400` | Cell outside the board, unknown mode, or `humanPlayer` not X/O |
-| `404` | Unknown game ID |
-| `409` | Occupied cell, wrong player, move after the game is over, or undo with no moves |
+The game engine is responsible for determining:
 
-**Behaviour the UI relies on**
+- Current player.
+- Valid moves.
+- Game status.
+- Winner.
+- Winning cells.
+- Move history.
+- Whether Undo is allowed.
+- Computer moves.
+- Scoreboard updates.
+- Match history.
 
-- **Computer mode:** the human plays `humanPlayer` and the computer plays the other side. X
-  always moves first, so when the computer is X, `POST /games` (and reset) return the board with
-  the computer's opening move already made. After each human move the API applies the computer's
-  reply in the **same request**, chosen according to the game's `difficulty`. If the human's move
-  ends the game, the computer does not move. An unknown difficulty is rejected with 400.
-- **Undo, two-player:** removes the latest move only.
-- **Undo, computer mode:** removes the computer's move and the human move before it. If the human
-  ended the game (so the computer never replied), only that move is removed. The computer's
-  opening move is never undone; `canUndo` is false until the human has moved.
-- **Reset:** clears moves and result for that game ID, keeping mode, sides and names. The
-  scoreboard and history are untouched; a result already counted stays counted.
-- **History:** a game is added when it finishes. If undo reopens it, that entry is removed
-  together with its scoreboard point, so history and scoreboard always agree.
+The UI renders the state provided by the game engine rather than independently calculating game results.
 
-The mock (`src/mocks/rules.ts`, `src/mocks/mockGameApi.ts`) implements exactly these rules, so it
-also works as a reference for the C# service and its unit tests.
+---
 
-## 7. Running tests
+## 6. UI Behavior
+
+The game screen provides the following controls:
+
+- Undo Last Move.
+- Reset Game.
+- New Game.
+- Reset Scoreboard.
+- Main Menu.
+
+Undo, Reset and New Game are icon buttons. Each has its full name as a hover tooltip and as its accessible label.
+
+### Cell States
+
+#### Empty Cell
+
+- Clickable.
+- Displays no mark.
+
+#### Selected Cell
+
+- Displays X or O.
+- Disabled.
+
+#### Winning Cell
+
+- Displays X or O.
+- Highlighted with a glowing outline that pulses.
+- Disabled.
+
+#### Completed Game
+
+- All cells are disabled.
+- Marks that are not part of the winning line are dimmed.
+- Additional moves are prevented.
+- Winner or draw status is displayed.
+- Undo and Reset are disabled, and a message says to start a new game.
+
+### Loading States
+
+- While the application starts, the menu shows "Loading your scoreboard…" and its buttons wait.
+- While a move is being processed, the board is marked busy and a spinner fades in if the action takes more than a moment.
+
+### Action Processing
+
+Controls are disabled while an action is being processed to prevent duplicate actions such as double-clicking a cell multiple times.
+
+If an action is rejected, an appropriate message is displayed without incorrectly changing the game state.
+
+---
+
+## 7. Responsive Design
+
+The application is designed to work comfortably across different screen sizes.
+
+It was checked on screen sizes from a 320 × 568 phone to a 1920 × 1080 desktop.
+
+The board scales with both the width and the height of the window, so the following stay visible and usable without scrolling:
+
+- Players/current turn.
+- Game board.
+- Game status.
+- Game controls.
+
+The move history and scoreboard sit beside the board on wide screens and below it on narrow screens.
+
+There is no horizontal overflow at any size.
+
+---
+
+## 8. Accessibility
+
+The application follows basic accessibility practices.
+
+- Game cells are implemented as accessible buttons and can be used with the keyboard.
+- Buttons have meaningful labels, including the icon-only buttons.
+- Disabled controls use appropriate disabled states.
+- Game status is communicated clearly.
+- Status updates are announced to screen readers.
+- Winning cells are distinguished by an outline and a pulse, not by colour alone, and are labelled as winning cells.
+- When the screen changes, focus moves to the new screen's heading.
+- Animations respect the user's reduced-motion preference.
+
+---
+
+## 9. Testing
+
+The application includes 47 tests for the core game logic and user interactions.
+
+Run them with:
 
 ```bash
 npm test
 ```
 
-42 tests in three files:
+### Game Logic Tests
 
-| File | Covers |
+Tests cover:
+
+- Valid moves.
+- Invalid moves.
+- Turn switching.
+- Row wins.
+- Column wins.
+- Diagonal wins.
+- Draw detection.
+- Move after game completion.
+- Computer move selection.
+- Each computer level, including a check that Unbeatable never loses in any possible game.
+
+### Undo Tests
+
+Tests cover:
+
+- Undo in Two Player Mode.
+- Undo in Computer Mode.
+- Undo when there are no moves.
+- Undo after game completion.
+- Undo around the computer's opening move.
+
+### Scoreboard Tests
+
+Tests cover:
+
+- X win.
+- O win.
+- Draw.
+- Counting a completed game only once.
+- Resetting the scoreboard.
+- Reset Game preserving the scoreboard.
+
+### UI Tests
+
+Tests cover:
+
+- Welcome menu.
+- Game setup: mode, level, coin toss and side.
+- Board rendering (nine empty, clickable cells).
+- Cell interaction.
+- Turn display.
+- Winner display.
+- Draw display.
+- Winning-cell highlighting.
+- Move history.
+- Undo behavior.
+- Reset Game.
+- New Game keeping the current setup.
+- Scoreboard.
+- Reset Scoreboard.
+- Loading states.
+- Error handling.
+- Completed-game behavior.
+- Match History and Continue Game.
+- How to Play.
+
+The coin toss is injected into the app in tests, so the result is fixed rather than random.
+
+---
+
+## 10. Test Coverage
+
+The required assessment scenarios are covered by the following test areas:
+
+| Required Case | Covered By |
 | --- | --- |
-| `src/mocks/rules.test.ts` | Row, column and diagonal wins; draw versus in progress; computer priority (win, block, center, corner, any); each level (Novice ignores wins, Easy wins but does not block, Medium blocks, Hard is the default, Unbeatable stops a fork Hard walks into and never loses against every possible line) |
-| `src/mocks/mockGameApi.test.ts` | Valid move and turn switch; out-of-board, occupied-cell and wrong-player rejection; move after completion; draw scoring; undo in two-player mode; undo in computer mode (pair, and single move when X wins); computer not moving after the game ends; scored once and reversed on undo; reset keeps the scoreboard; reset scoreboard; player names; computer opening as X, and undo/reset around that opener; history entries added, ordered, dropped on undo and kept on reset; difficulty stored, defaulted to Hard and validated |
-| `src/App.test.tsx` | Rendering and API integration through the UI: welcome menu; the five computer levels and the chosen level reaching the game; mode → toss → side flow (toss loser and winner); turns and history; winner highlight, locked board (disabled cells and hint) and scoring; reset game; draw and reset scoreboard; computer winning the toss and opening; undo in both modes; server error shown with the turn unchanged; match history and Continue game; How to play |
+| Board renders correctly | UI tests |
+| Nine cells are displayed | UI tests |
+| Empty cell can be selected | Game API and UI tests |
+| Occupied cell cannot be selected | Game API and UI tests |
+| X and O are displayed correctly | UI tests |
+| Valid move | Game API tests |
+| Invalid move | Game API tests |
+| Turn switching | Game API and UI tests |
+| Row win | Game rules and UI tests |
+| Column win | Game rules tests |
+| Diagonal win | Game rules tests |
+| Draw | Game rules, game API and UI tests |
+| Winning cells are highlighted | UI tests |
+| Move history updates correctly | UI tests |
+| Reset game | Game API and UI tests |
+| Undo in Two Player Mode | Game API and UI tests |
+| Undo in Computer Mode | Game API and UI tests |
+| Undo disabled when there are no moves | UI tests |
+| Scoreboard update | Game API and UI tests |
+| Reset Scoreboard | Game API and UI tests |
+| Computer move selection | Game rules tests |
+| Computer follows the required move priority | Game rules tests |
+| Move after game completion | Game API and UI tests |
+| Loading and error states | UI tests |
 
-The coin is injected into `App` (`flipCoin`, `tossDelayMs`), so the UI tests decide the toss
-result instead of depending on chance.
+Test files:
 
-## 8. AI tools and prompt summary
+- Game rules tests: `src/mocks/rules.test.ts`
+- Game API tests: `src/mocks/mockGameApi.test.ts`
+- UI tests: `src/App.test.tsx`
 
-> Review and personalize this section before submitting. The panel will ask about it.
+---
 
-- **Tool:** Claude Code (Anthropic) in VS Code.
-- **Workflow:**
-  1. Turned the brief into a spec: a typed API contract (`src/api/types.ts`), the rule list in
-     section 6, and the test checklist from the brief.
-  2. Had the AI generate the React app, the mock API and the tests against that contract.
-  3. Reviewed the output against the brief's acceptance criteria. Gaps were then fixed: the
-     move request had no `player`, there was no reset endpoint, the default script required a
-     backend, and some required test cases were missing.
-- **Example prompt:** the full assignment brief, plus "I'm only focusing on the frontend, so
-  only the React project is enough, no need for the backend."
-- **Reviewed carefully:** undo in computer mode when X wins (only one move to remove); scoring
-  exactly once, and reversing the score when undo reopens a finished game; the computer's move
-  priority order; double-click protection while a request is in flight.
+## 11. Design Decisions
 
-## 9. Design decisions
+### Game Engine as the Source of Truth
 
-- **Server is the source of truth.** The UI never computes winners, turns or computer moves. It
-  sends one request per action and renders the returned `GameState`. Client checks (for example
-  ignoring clicks on filled cells) are only there to avoid pointless requests.
-- **`GameApi` interface** with two implementations (HTTP and mock). This keeps the backend
-  swappable and lets UI tests run against realistic behaviour without network stubs.
-- **Moves are the stored state.** The mock stores only the move list; board, turn, status and
-  winning cells are derived from it. Undo becomes "drop the last N moves", and the state can't
-  drift out of sync.
-- **Computer reply in the same request** as the human move. There is no race, the computer can't
-  move twice, and the UI doesn't have to sequence two calls.
-- **One hook (`useGame`)** holds all client state. A ref-based busy guard rejects a second click
-  before React re-renders.
-- **Game ID in `sessionStorage`**, so a refresh resumes the game while the server still has it
-  (with the mock, a refresh starts fresh).
-- **Screens without a router.** Six screens (menu, setup, game, history, scoreboard, rules) are
-  switched with one state value in `App`, so there's no routing dependency. Focus moves to each
-  screen's heading for keyboard and screen-reader users.
-- **History entries carry the final board** from the server, so the client draws past games
-  without replaying moves.
+The game engine is responsible for game rules and state transitions.
 
-## 10. Clarifications and assumptions
+The UI does not independently determine:
 
-- **Scoreboard and undo: Option A in the UI (no undo after completion).** Once a game is won or
-  drawn, Undo and Reset are disabled and the player starts a new game, so a finished result is
-  final. The API contract still supports undoing a finished game (it takes the result back off the
-  scoreboard and history, so a game never counts twice); the UI simply doesn't offer it.
-- The brief mentions both Angular and React. The technology section says React, so this is a
-  React app.
-- Frontend-only scope (see section 1). The mock stands in for the .NET API.
-- Reset Game keeps the same game ID, mode, sides and names (`POST /games/{id}/reset`). **New
-  game** goes back through setup and creates a game with `POST /games`. An unfinished game is
-  abandoned and not scored.
-- **Deviation from the brief: the human can play O.** The brief fixes the human as X in
-  computer mode. A coin toss to choose sides was requested on top of that, so the human plays
-  whichever side the toss gives them, and the computer takes X when it wins. "Skip the toss"
-  with X reproduces the brief's original setup exactly. X always moves first, and Reset still
-  gives X the first move.
-- The scoreboard counts X wins and O wins, as the brief asks, not wins per person. Since sides
-  can change between games, the history screen shows who won each game by name.
-- Player names are optional, at most 20 characters, and only used in multiplayer. In single
-  player the names are "You" and "Computer".
+- Who won.
+- Whose turn it is.
+- Which cells are winning cells.
+- Whether Undo is allowed.
+- Which move the computer should make.
 
-## 11. Known limitations
+The UI sends an action to the game engine and renders the resulting state.
 
-- No real backend in this repo, so the mock's state (games, history, scoreboard) lasts only
-  until the page reloads.
-- A single shared scoreboard: no per-user or per-mode scores.
-- Match history is not paged and can't be cleared separately.
-- The browser back button doesn't move between screens (no router); the on-screen back
-  buttons do.
-- The computer follows the required heuristic, not minimax, so it can be beaten with a fork.
-- No end-to-end browser tests (component and integration tests only).
+### Move History as the Basis for Game State
 
-## 12. Future improvements
+The game engine stores the moves made during the current game.
 
-- Implement the ASP.NET Core API from this contract, porting `rules.ts` and its tests to xUnit.
-- Generate the TypeScript types from the API's OpenAPI document so they can't drift.
-- Add Playwright end-to-end tests against the real API.
-- Add difficulty levels (minimax), per-player and per-mode scoreboards, and history filters.
-- URL-based routing so browser back/forward and deep links work.
-- Keyboard arrow-key navigation across the board.
+The board, current player, game status and winning cells are derived from the move history.
 
-## Project structure
+This keeps related pieces of game state synchronized and makes Undo easier to implement.
 
-```
+### Computer Replies in the Same Action
+
+The computer's reply is made as part of the human's move.
+
+This means the computer can never move twice or move after the game has ended, and the UI does not need to coordinate two separate steps.
+
+### Undo Behavior
+
+Undo behavior depends on the selected game mode:
+
+- Two Player Mode removes one move.
+- Computer Mode removes the human move and the computer response together.
+
+### Undo After Game Completion
+
+Option A is used:
+
+- Undo is disabled after a game is Won or Drawn.
+- The scoreboard remains final for the completed game.
+
+The game engine enforces this rule, not only the UI. A finished game reports that it cannot be undone, and an undo attempt is rejected.
+
+This prevents a completed result from being reversed and keeps scoreboard behavior predictable.
+
+### Single Game State Hook
+
+UI state and game actions are managed through the `useGame` hook.
+
+This keeps game-related UI behavior centralized and prevents multiple components from maintaining conflicting game state.
+
+The hook also blocks a second action while one is still being processed, so a double click cannot make two moves.
+
+### Screens Without a Router
+
+The six screens (menu, setup, game, match history, scoreboard and how to play) are switched with a single piece of state in `App`, so no routing library is needed.
+
+---
+
+## 12. AI Tools and Prompt Summary
+
+> Review and personalize this section before submitting. The "What I Changed Manually" part must describe what you did yourself.
+
+### Tool Used
+
+Claude Code (Anthropic's coding assistant) inside VS Code.
+
+### Converting the Requirement into a Specification
+
+Before building the UI, the requirements were turned into:
+
+- Typed models for the game (`src/api/types.ts`).
+- A list of the rules the game engine must follow.
+- A checklist of required test cases, matched to tests in section 10.
+
+### Prompts Used
+
+1. The full assignment brief, with the instruction to focus on the React frontend only.
+2. "Can't able to run", with a screenshot of an error, which made the app run on its own with `npm run dev`.
+3. "I just want to present in a neon way", which led to the neon theme.
+4. A landing page with Start Game, history and other menu options, a choice between Single Player and Multiplayer, and a coin toss to choose sides.
+5. Disabling the board after a win or draw, five difficulty levels for Single Player, and a responsive layout where everything fits on screen.
+6. Disabling Undo and Reset once the game is over.
+7. Using lucide-react icons for Undo, Reset and New Game.
+8. The assessment's clarifications and requirement list, to check the solution against them.
+
+### What the AI Generated
+
+- The React screens, components and the `useGame` hook.
+- The game engine and computer move logic.
+- The neon styling and responsive layout.
+- The tests.
+- The first drafts of this README.
+
+### What I Changed Manually
+
+_Fill this in: for example, wording you rewrote, values you tuned, or code you changed after review._
+
+### What I Reviewed Carefully
+
+- Undo in Computer Mode removes both moves and never removes the computer's opening move.
+- A completed game is scored exactly once, and the game engine itself refuses Undo after completion.
+- The UI never decides the winner, the turn or the computer's move.
+- The computer's priority order, and that the Unbeatable level never loses.
+- Double clicks cannot make two moves.
+
+---
+
+## 13. Clarifications and Assumptions
+
+- The original assessment mentions both Angular and React in different sections. The technology requirements specify React.js, so this implementation uses React with TypeScript.
+- This implementation focuses on the frontend portion of the assessment.
+- X always starts a new game.
+- **Deviation from the brief:** the brief has the human as X and the computer as O in Computer Mode. A coin toss to choose sides was added, so the human plays whichever side the toss gives them, and the computer takes X when it wins the toss. Skipping the toss and choosing X gives exactly the setup in the brief.
+- Reset Game clears only the current game and does not reset the scoreboard.
+- Reset Game is disabled after a game is completed; New Game starts the next game with the same setup.
+- An unfinished game that is replaced by New Game is abandoned and is not scored.
+- Undo is disabled after a game is completed (Option A).
+- A completed game is counted in the scoreboard only once.
+- The default computer level (Hard) uses the five-step priority strategy specified in the assessment. The other levels are additions.
+- The scoreboard counts X wins and O wins, as the brief asks, rather than wins per person. Because players can change sides, Match History shows each winner by name.
+- Player names are only used in Multiplayer. In Single Player the players are "You" and "Computer".
+- Game state is maintained for the current session.
+
+---
+
+## 14. Known Limitations
+
+- Game state, scoreboard and match history are maintained in memory.
+- Refreshing the browser clears the current game, scoreboard and match history.
+- The scoreboard is session-level and shared across modes.
+- Match history is not paged and cannot be cleared on its own.
+- The browser back button does not move between screens; the on-screen back buttons do.
+- Levels 1 to 3 use random choices, so those games cannot be replayed exactly.
+- End-to-end browser testing is not currently included.
+
+---
+
+## 15. Future Improvements
+
+Possible future improvements include:
+
+- Persist game state, scoreboard and match history using browser storage.
+- Add Playwright end-to-end tests.
+- Add player-specific and per-mode statistics.
+- Add URL-based routing so the browser back button works between screens.
+- Add arrow-key navigation across the board.
+- Add configurable board sizes.
+- Add additional visual themes.
+- Add sound effects.
+- Add online multiplayer support.
+
+---
+
+## 16. Project Structure
+
+```text
 src/
-  api/          types.ts (contract), client.ts (fetch + errors), gameApi.ts (endpoints), index.ts (mock/HTTP switch)
-  hooks/        useGame.ts: all client state, one request per action, double-click guard
-  screens/      MainMenu, GameSetup (mode, coin toss, side), GameScreen, HistoryScreen, InfoScreens (scoreboard, rules)
-  components/   Board, Mark, PlayersBar, StatusLine, GameControls, ScoreBoard, MoveHistory, MoveTable, ScreenHeader
-  mocks/        rules.ts + mockGameApi.ts: in-browser implementation of the API contract
-  utils/        format.ts: positions, result and matchup text
-  App.tsx       picks the current screen
+│
+├── api/
+│   ├── types.ts            game models
+│   ├── gameApi.ts          the interface the UI uses to talk to the game engine
+│   ├── client.ts           request and error helpers
+│   └── index.ts            chooses the game engine the app uses
+│
+├── hooks/
+│   └── useGame.ts          all game UI state and actions
+│
+├── screens/
+│   ├── MainMenu.tsx        welcome menu
+│   ├── GameSetup.tsx       mode, level, coin toss and side
+│   ├── GameScreen.tsx      the board and its panels
+│   ├── HistoryScreen.tsx   match history
+│   └── InfoScreens.tsx     scoreboard and how to play
+│
+├── components/
+│   ├── Board.tsx
+│   ├── Mark.tsx
+│   ├── PlayersBar.tsx
+│   ├── StatusLine.tsx
+│   ├── GameControls.tsx
+│   ├── ScoreBoard.tsx
+│   ├── MoveHistory.tsx
+│   ├── MoveTable.tsx
+│   └── ScreenHeader.tsx
+│
+├── mocks/
+│   ├── rules.ts            win/draw detection and computer levels
+│   ├── mockGameApi.ts      the game engine
+│   ├── rules.test.ts
+│   └── mockGameApi.test.ts
+│
+├── utils/
+│   └── format.ts           text for positions, results and matchups
+│
+├── App.tsx                 picks which screen to show
+├── App.test.tsx            UI tests
+├── main.tsx
+└── styles.css              neon theme and responsive layout
 ```
+
+---
+
+## 17. Running the Application Locally
+
+### Prerequisites
+
+- Node.js 18 or later.
+- npm.
+
+### Installation
+
+```bash
+npm install
+```
+
+### Start Development Server
+
+```bash
+npm run dev
+```
+
+The application will be available at:
+
+```text
+http://localhost:5173
+```
+
+### Available Scripts
+
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Starts the development server |
+| `npm test` | Runs all tests |
+| `npm run test:watch` | Runs tests in watch mode |
+| `npm run typecheck` | Runs the TypeScript checker |
+| `npm run build` | Builds the application |
+| `npm run preview` | Serves the production build locally |
+
+---
+
+## 18. Assessment Acceptance Criteria
+
+The application is considered complete when:
+
+- React application runs successfully.
+- 3 × 3 Tic Tac Toe board is displayed.
+- X starts every new game.
+- Two Player Mode works correctly.
+- Computer Mode works correctly.
+- Players alternate turns correctly.
+- Empty cells can be selected.
+- Occupied cells cannot be selected.
+- Row wins are detected.
+- Column wins are detected.
+- Diagonal wins are detected.
+- Winning cells are highlighted.
+- Draws are detected.
+- Completed games prevent additional moves.
+- Current player is displayed.
+- Winner or draw message is displayed.
+- Move history is displayed and updated.
+- Undo works correctly in Two Player Mode.
+- Undo works correctly in Computer Mode.
+- Undo is disabled when there are no moves.
+- Undo is disabled after game completion.
+- Reset Game works correctly.
+- Reset Game preserves the scoreboard.
+- Scoreboard displays X wins, O wins and draws.
+- Completed games are counted only once.
+- Reset Scoreboard works correctly.
+- Computer follows the required move-selection priority.
+- Loading and error states are handled.
+- UI is responsive.
+- Basic accessibility requirements are met.
+- Core functionality is covered by tests.

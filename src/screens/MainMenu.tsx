@@ -1,6 +1,7 @@
 interface MainMenuProps {
   canContinue: boolean;
   disabled: boolean;
+  isLoading: boolean;
   onContinue: () => void;
   onStart: () => void;
   onHistory: () => void;
@@ -8,7 +9,7 @@ interface MainMenuProps {
   onRules: () => void;
 }
 
-export function MainMenu({ canContinue, disabled, onContinue, onStart, onHistory, onScoreboard, onRules }: MainMenuProps) {
+export function MainMenu({ canContinue, disabled, isLoading, onContinue, onStart, onHistory, onScoreboard, onRules }: MainMenuProps) {
   return (
     <main className="menu">
       <h1 className="menu__heading" tabIndex={-1}>
@@ -50,6 +51,9 @@ export function MainMenu({ canContinue, disabled, onContinue, onStart, onHistory
           </li>
         </ul>
       </nav>
+      <p className="menu__loading" aria-live="polite">
+        {isLoading && 'Loading your scoreboard…'}
+      </p>
     </main>
   );
 }

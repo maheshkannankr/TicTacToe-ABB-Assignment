@@ -65,6 +65,10 @@ export function RulesScreen({ onBack }: { onBack: () => void }) {
             </li>
             <li>When a game ends the board locks and Undo and Reset are switched off. Start a new game to play again.</li>
             <li>
+              <strong>New game</strong> starts a fresh game with the same players, sides and level. To change them, go
+              back to the main menu and choose Start game.
+            </li>
+            <li>
               <strong>Reset game</strong> clears the board with the same players and sides. The scoreboard stays.
             </li>
           </ul>
