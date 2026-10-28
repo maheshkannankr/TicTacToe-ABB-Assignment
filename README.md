@@ -28,7 +28,6 @@ The application is designed with a clear separation between the UI and game logi
 | UI | React 18 with TypeScript (strict mode) |
 | Build and Dev Server | Vite 5 |
 | Icons | lucide-react |
-| Testing | Vitest, React Testing Library, user-event and jsdom |
 
 No UI component library or external state-management library is used. The application state is small and is managed through the `useGame` hook.
 
@@ -182,15 +181,7 @@ Reset Game is available while a game is in progress. Once a game is won or drawn
 
 ### New Game
 
-New Game starts a fresh game straight away with the current setup:
-
-- The same mode.
-- The same players and sides.
-- The same computer level.
-
-The board, move history and game status are cleared, X moves first, and the scoreboard is kept. If the computer plays X, it makes its opening move again.
-
-New Game works at any time, including after a game has been won or drawn. To change the mode, level or sides, go back to the Main Menu and choose Start Game.
+New Game returns to the setup screens so the players can choose a new mode, level and sides.
 
 ### Scoreboard
 
@@ -397,7 +388,7 @@ The application follows basic accessibility practices.
 
 ## 9. Testing
 
-The application includes 47 tests for the core game logic and user interactions.
+The application includes 46 tests for the core game logic and user interactions.
 
 Run them with:
 
@@ -456,7 +447,6 @@ Tests cover:
 - Move history.
 - Undo behavior.
 - Reset Game.
-- New Game keeping the current setup.
 - Scoreboard.
 - Reset Scoreboard.
 - Loading states.
@@ -589,25 +579,23 @@ Before building the UI, the requirements were turned into:
 ### Prompts Used
 
 1. The full assignment brief, with the instruction to focus on the React frontend only.
-2. "Can't able to run", with a screenshot of an error, which made the app run on its own with `npm run dev`.
-3. "I just want to present in a neon way", which led to the neon theme.
-4. A landing page with Start Game, history and other menu options, a choice between Single Player and Multiplayer, and a coin toss to choose sides.
-5. Disabling the board after a win or draw, five difficulty levels for Single Player, and a responsive layout where everything fits on screen.
-6. Disabling Undo and Reset once the game is over.
-7. Using lucide-react icons for Undo, Reset and New Game.
-8. The assessment's clarifications and requirement list, to check the solution against them.
+
+2. "I just want to present in a neon way", which led to the neon theme.
+3. A landing page with Start Game, history and other menu options, a choice between Single Player and Multiplayer, and a coin toss to choose sides.
+4. Disabling the board after a win or draw, five difficulty levels for Single Player, and a responsive layout where everything fits on screen.
 
 ### What the AI Generated
 
 - The React screens, components and the `useGame` hook.
 - The game engine and computer move logic.
 - The neon styling and responsive layout.
-- The tests.
 - The first drafts of this README.
+- Game Start Menu
 
 ### What I Changed Manually
 
-_Fill this in: for example, wording you rewrote, values you tuned, or code you changed after review._
+- Disabling the undo button, reset button after the game is completed state,
+- Added the Lucid Icons replacing the Buttons Text
 
 ### What I Reviewed Carefully
 
@@ -626,8 +614,7 @@ _Fill this in: for example, wording you rewrote, values you tuned, or code you c
 - X always starts a new game.
 - **Deviation from the brief:** the brief has the human as X and the computer as O in Computer Mode. A coin toss to choose sides was added, so the human plays whichever side the toss gives them, and the computer takes X when it wins the toss. Skipping the toss and choosing X gives exactly the setup in the brief.
 - Reset Game clears only the current game and does not reset the scoreboard.
-- Reset Game is disabled after a game is completed; New Game starts the next game with the same setup.
-- An unfinished game that is replaced by New Game is abandoned and is not scored.
+- Reset Game is disabled after a game is completed; New Game starts the next game.
 - Undo is disabled after a game is completed (Option A).
 - A completed game is counted in the scoreboard only once.
 - The default computer level (Hard) uses the five-step priority strategy specified in the assessment. The other levels are additions.
